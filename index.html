@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arrow Trajectory Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid black;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+    <h1>Arrow Trajectory Game</h1>
+    <canvas id="trajectoryCanvas" width="800" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById('trajectoryCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let angle = 45;
+        let power = 50;
+        let isDragging = false;
+        let launchPoint = { x: 100, y: canvas.height - 50 }; // Fixed launch point
+
+        function calculateArrowTrajectory(angle, power, totalTime = 5) {
+            const g = 9.8; // Acceleration due to gravity (m/s^2)
+            const angleInRadians = (angle * Math.PI) / 180; // Convert angle to radians
+            const initialVelocityX = power * Math.cos(angleInRadians); // Horizontal velocity
+            const initialVelocityY = power * Math.sin(angleInRadians); // Vertical velocity
+
+            const points = [];
+            const deltaTime = 0.05; // Smaller intervals for smooth animation
+
+            for (let t = 0; t <= totalTime; t += deltaTime) {
+                const x = initialVelocityX * t; // x = vx * t
+                const y = initialVelocityY * t - 0.5 * g * t * t; // y = vy * t - (1/2) * g * t^2
+
+                if (y < 0) break; // Stop when hitting the ground
+
+                points.push({ x, y });
+            }
+
+            return points;
+        }
+
+        function drawTrajectory() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(launchPoint.x, launchPoint.y, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            const trajectory = calculateArrowTrajectory(angle, power);
+            const scale = 5;
+
+            trajectory.forEach((point) => {
+                const canvasX = launchPoint.x + point.x * scale;
+                const canvasY = launchPoint.y - point.y * scale;
+
+                ctx.beginPath();
+                ctx.arc(canvasX, canvasY, 2, 0, Math.PI * 2);
+                ctx.fillStyle = 'red';
+                ctx.fill();
+            });
+        }
+
+        function updateAngleAndPower(mouseX, mouseY) {
+            const dx = mouseX - launchPoint.x;
+            const dy = launchPoint.y - mouseY;
+
+            angle = Math.atan2(dy, dx) * (180 / Math.PI); // Convert radians to degrees
+            power = Math.min(Math.sqrt(dx * dx + dy * dy) / 2, 100); // Scale power
+        }
+
+        canvas.addEventListener('mousedown', (event) => {
+            isDragging = true;
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            if (isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+
+                updateAngleAndPower(mouseX, mouseY);
+                drawTrajectory();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        drawTrajectory();
+    </script>
+</body>
+</html>
