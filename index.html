@@ -51,9 +51,11 @@
                 const x = initialVelocityX * t;
                 const y = initialVelocityY * t - 0.5 * g * t * t;
 
-                if (y < 0) break; // Stop when hitting the ground
-
+                // Allow the arrow to hit the ground by not breaking when y becomes negative
                 points.push({ x, y });
+
+                // Stop the loop if the arrow goes out of canvas bounds
+                if (launchPoint.x + x * (currentPlayer === 1 ? 1 : -1) < 0 || launchPoint.x + x * (currentPlayer === 1 ? 1 : -1) > canvas.width) break;
             }
 
             return points;
@@ -74,10 +76,13 @@
                     const canvasX = launchPoint.x + point.x * scale * direction;
                     const canvasY = launchPoint.y - point.y * scale;
 
-                    ctx.beginPath();
-                    ctx.arc(canvasX, canvasY, 2, 0, Math.PI * 2);
-                    ctx.fillStyle = 'red';
-                    ctx.fill();
+                    // Check if the point is within the canvas
+                    if (canvasY >= 0 && canvasY <= canvas.height) {
+                        ctx.beginPath();
+                        ctx.arc(canvasX, canvasY, 2, 0, Math.PI * 2);
+                        ctx.fillStyle = 'red';
+                        ctx.fill();
+                    }
                 });
             }
         }
@@ -94,10 +99,42 @@
         function drawPlayers() {
             players.forEach((player, index) => {
                 if (player.visible) {
-                    ctx.fillStyle = index + 1 === currentPlayer ? 'green' : 'gray';
-                    ctx.fillRect(player.x, player.y, player.width, player.height);
-                    ctx.fillStyle = 'black';
-                    ctx.fillText(index === 0 ? '🏹' : '🏹', player.x + 15, player.y + 50);
+                    ctx.save();
+                    ctx.strokeStyle = index + 1 === currentPlayer ? 'green' : 'gray';
+                    ctx.lineWidth = 3;
+
+                    // Position the stickman at the base of where the rectangle was
+                    const centerX = player.x + player.width / 2;
+                    const baseY = player.y + player.height;
+
+                    // Head
+                    ctx.beginPath();
+                    ctx.arc(centerX, baseY - player.height + 15, 10, 0, 2 * Math.PI);
+                    ctx.stroke();
+
+                    // Body
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, baseY - player.height + 25);
+                    ctx.lineTo(centerX, baseY - 20);
+                    ctx.stroke();
+
+                    // Arms
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, baseY - player.height + 50);
+                    ctx.lineTo(centerX - 20, baseY - player.height + 30);
+                    ctx.moveTo(centerX, baseY - player.height + 50);
+                    ctx.lineTo(centerX + 20, baseY - player.height + 30);
+                    ctx.stroke();
+
+                    // Legs
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, baseY - 20);
+                    ctx.lineTo(centerX - 15, baseY);
+                    ctx.moveTo(centerX, baseY - 20);
+                    ctx.lineTo(centerX + 15, baseY);
+                    ctx.stroke();
+
+                    ctx.restore();
                 }
             });
         }
@@ -133,24 +170,35 @@
                 arrowPosition.x = launchPoint.x + nextPoint.x * scale * direction;
                 arrowPosition.y = launchPoint.y - nextPoint.y * scale;
 
-                // Check for collision with the other player
-                const opponent = players.find(p => p !== players[currentPlayer - 1]);
-                if (
-                    opponent.visible &&
-                    arrowPosition.x > opponent.x &&
-                    arrowPosition.x < opponent.x + opponent.width &&
-                    arrowPosition.y > opponent.y &&
-                    arrowPosition.y < opponent.y + opponent.height
-                ) {
-                    opponent.visible = false;
+                // Check for collision with the ground or players
+                if (arrowPosition.y >= canvas.height || arrowPosition.x < 0 || arrowPosition.x > canvas.width) {
+                    // Arrow hit the ground or went out of bounds
                     isArrowFlying = false;
                     arrowPosition = null;
-                    alert(`Player ${currentPlayer} wins!`);
-                    return; // End the game
+                    currentPlayer = currentPlayer === 1 ? 2 : 1; // Switch player
+                    launchPoint = { x: players[currentPlayer - 1].x + 40, y: players[currentPlayer - 1].y };
+                    statusElement.textContent = `Player ${currentPlayer}'s Turn`;
+                } else {
+                    const opponent = players.find(p => p !== players[currentPlayer - 1]);
+                    if (
+                        opponent.visible &&
+                        arrowPosition.x >= opponent.x &&
+                        arrowPosition.x <= opponent.x + opponent.width &&
+                        arrowPosition.y >= opponent.y &&
+                        arrowPosition.y <= opponent.y + opponent.height
+                    ) {
+                        opponent.visible = false;
+                        isArrowFlying = false;
+                        arrowPosition = null;
+                        alert(`Player ${currentPlayer} wins!`);
+                        return; // End the game
+                    }
                 }
 
                 drawScene();
-                requestAnimationFrame(animateArrow);
+                if (isArrowFlying) {
+                    requestAnimationFrame(animateArrow);
+                }
             } else {
                 isArrowFlying = false;
                 arrowPosition = null;
