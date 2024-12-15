@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arrow Trajectory Game</title>
+    <title>Two-Player Arrow Game</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,34 +16,40 @@
     </style>
 </head>
 <body>
-    <h1>Arrow Trajectory Game</h1>
+    <h1>Two-Player Arrow Game</h1>
     <canvas id="trajectoryCanvas" width="1500" height="800"></canvas>
+    <p id="status">Player 1's Turn</p>
 
     <script>
         const canvas = document.getElementById('trajectoryCanvas');
         const ctx = canvas.getContext('2d');
+        const statusElement = document.getElementById('status');
 
+        let currentPlayer = 1; // 1 for Player 1, 2 for Player 2
+        const players = [
+            { x: 150, y: canvas.height - 150, width: 80, height: 150, visible: true },
+            { x: canvas.width - 230, y: canvas.height - 150, width: 80, height: 150, visible: true }
+        ];
         let angle = 45;
         let power = 50;
         let isDragging = false;
-        let launchPoint = { x: 150, y: canvas.height - 150 }; // Fixed launch point
+        let launchPoint = { x: players[currentPlayer - 1].x + 40, y: players[currentPlayer - 1].y }; // Adjust launch point based on the current player
         let isArrowFlying = false;
         let trajectoryPoints = [];
         let arrowPosition = null;
-        let castle = { x: canvas.width - 150, y: canvas.height - 250, width: 80, height: 150, visible: true };
 
         function calculateArrowTrajectory(angle, power, totalTime = 5) {
             const g = 9.8; // Acceleration due to gravity (m/s^2)
             const angleInRadians = (angle * Math.PI) / 180; // Convert angle to radians
-            const initialVelocityX = power * Math.cos(angleInRadians); // Horizontal velocity
-            const initialVelocityY = power * Math.sin(angleInRadians); // Vertical velocity
+            const initialVelocityX = power * Math.cos(angleInRadians);
+            const initialVelocityY = power * Math.sin(angleInRadians);
 
             const points = [];
             const deltaTime = 0.05; // Smaller intervals for smooth animation
 
             for (let t = 0; t <= totalTime; t += deltaTime) {
-                const x = initialVelocityX * t; // x = vx * t
-                const y = initialVelocityY * t - 0.5 * g * t * t; // y = vy * t - (1/2) * g * t^2
+                const x = initialVelocityX * t;
+                const y = initialVelocityY * t - 0.5 * g * t * t;
 
                 if (y < 0) break; // Stop when hitting the ground
 
@@ -63,8 +69,9 @@
                 const trajectory = calculateArrowTrajectory(angle, power);
                 const scale = 5;
 
+                const direction = currentPlayer === 1 ? 1 : -1; // Ensure correct direction
                 trajectory.forEach((point) => {
-                    const canvasX = launchPoint.x + point.x * scale;
+                    const canvasX = launchPoint.x + point.x * scale * direction;
                     const canvasY = launchPoint.y - point.y * scale;
 
                     ctx.beginPath();
@@ -84,20 +91,28 @@
             }
         }
 
-        function drawCastle() {
-            if (castle.visible) {
-                ctx.fillStyle = 'gray';
-                ctx.fillRect(castle.x, castle.y, castle.width, castle.height);
-                ctx.fillStyle = 'black';
-                ctx.fillText('🏰', castle.x + 15, castle.y + 50);
-            }
+        function drawPlayers() {
+            players.forEach((player, index) => {
+                if (player.visible) {
+                    ctx.fillStyle = index + 1 === currentPlayer ? 'green' : 'gray';
+                    ctx.fillRect(player.x, player.y, player.width, player.height);
+                    ctx.fillStyle = 'black';
+                    ctx.fillText(index === 0 ? '🏹' : '🏹', player.x + 15, player.y + 50);
+                }
+            });
         }
 
         function updateAngleAndPower(mouseX, mouseY) {
-            const dx = launchPoint.x - mouseX; // Reverse the x direction
-            const dy = mouseY - launchPoint.y; // Reverse the y direction
+            let dx = mouseX - launchPoint.x;
+            let dy = mouseY - launchPoint.y;
 
-            angle = Math.atan2(dy, dx) * (180 / Math.PI); // Convert radians to degrees
+            // Adjust angle based on which player is shooting
+            if (currentPlayer === 2) {
+                angle = (180 - Math.atan2(dy, dx) * (180 / Math.PI) + 180) % 360;
+            } else {
+                angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            }
+
             power = Math.min(Math.sqrt(dx * dx + dy * dy) / 2, 100); // Scale power
         }
 
@@ -114,20 +129,24 @@
             if (trajectoryPoints.length > 0) {
                 const scale = 5;
                 const nextPoint = trajectoryPoints.shift();
-                arrowPosition.x = launchPoint.x + nextPoint.x * scale;
+                const direction = currentPlayer === 1 ? 1 : -1; // Correct direction for each player
+                arrowPosition.x = launchPoint.x + nextPoint.x * scale * direction;
                 arrowPosition.y = launchPoint.y - nextPoint.y * scale;
 
-                // Check for collision with the castle
+                // Check for collision with the other player
+                const opponent = players.find(p => p !== players[currentPlayer - 1]);
                 if (
-                    castle.visible &&
-                    arrowPosition.x > castle.x &&
-                    arrowPosition.x < castle.x + castle.width &&
-                    arrowPosition.y > castle.y &&
-                    arrowPosition.y < castle.y + castle.height
+                    opponent.visible &&
+                    arrowPosition.x > opponent.x &&
+                    arrowPosition.x < opponent.x + opponent.width &&
+                    arrowPosition.y > opponent.y &&
+                    arrowPosition.y < opponent.y + opponent.height
                 ) {
-                    castle.visible = false;
+                    opponent.visible = false;
                     isArrowFlying = false;
                     arrowPosition = null;
+                    alert(`Player ${currentPlayer} wins!`);
+                    return; // End the game
                 }
 
                 drawScene();
@@ -135,6 +154,9 @@
             } else {
                 isArrowFlying = false;
                 arrowPosition = null;
+                currentPlayer = currentPlayer === 1 ? 2 : 1; // Switch player
+                launchPoint = { x: players[currentPlayer - 1].x + 40, y: players[currentPlayer - 1].y };
+                statusElement.textContent = `Player ${currentPlayer}'s Turn`;
                 drawScene();
             }
         }
@@ -143,7 +165,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawTrajectory();
             drawArrow();
-            drawCastle();
+            drawPlayers();
         }
 
         canvas.addEventListener('mousedown', (event) => {
