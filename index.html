@@ -17,7 +17,7 @@
 </head>
 <body>
     <h1>Arrow Trajectory Game</h1>
-    <canvas id="trajectoryCanvas" width="1200" height="600"></canvas>
+    <canvas id="trajectoryCanvas" width="1500" height="800"></canvas>
 
     <script>
         const canvas = document.getElementById('trajectoryCanvas');
@@ -30,6 +30,7 @@
         let isArrowFlying = false;
         let trajectoryPoints = [];
         let arrowPosition = null;
+        let castle = { x: canvas.width - 150, y: canvas.height - 250, width: 80, height: 150, visible: true };
 
         function calculateArrowTrajectory(angle, power, totalTime = 5) {
             const g = 9.8; // Acceleration due to gravity (m/s^2)
@@ -53,7 +54,6 @@
         }
 
         function drawTrajectory() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = 'black';
             ctx.beginPath();
             ctx.arc(launchPoint.x, launchPoint.y, 5, 0, Math.PI * 2);
@@ -84,6 +84,15 @@
             }
         }
 
+        function drawCastle() {
+            if (castle.visible) {
+                ctx.fillStyle = 'gray';
+                ctx.fillRect(castle.x, castle.y, castle.width, castle.height);
+                ctx.fillStyle = 'black';
+                ctx.fillText('🏰', castle.x + 15, castle.y + 50);
+            }
+        }
+
         function updateAngleAndPower(mouseX, mouseY) {
             const dx = launchPoint.x - mouseX; // Reverse the x direction
             const dy = mouseY - launchPoint.y; // Reverse the y direction
@@ -107,6 +116,20 @@
                 const nextPoint = trajectoryPoints.shift();
                 arrowPosition.x = launchPoint.x + nextPoint.x * scale;
                 arrowPosition.y = launchPoint.y - nextPoint.y * scale;
+
+                // Check for collision with the castle
+                if (
+                    castle.visible &&
+                    arrowPosition.x > castle.x &&
+                    arrowPosition.x < castle.x + castle.width &&
+                    arrowPosition.y > castle.y &&
+                    arrowPosition.y < castle.y + castle.height
+                ) {
+                    castle.visible = false;
+                    isArrowFlying = false;
+                    arrowPosition = null;
+                }
+
                 drawScene();
                 requestAnimationFrame(animateArrow);
             } else {
@@ -120,6 +143,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawTrajectory();
             drawArrow();
+            drawCastle();
         }
 
         canvas.addEventListener('mousedown', (event) => {
