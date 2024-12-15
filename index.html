@@ -17,7 +17,7 @@
 </head>
 <body>
     <h1>Two-Player Arrow Game</h1>
-    <canvas id="trajectoryCanvas" width="1500" height="800"></canvas>
+    <canvas id="trajectoryCanvas" width="2000" height="1000"></canvas>
     <p id="status">Player 1's Turn</p>
 
     <script>
@@ -37,6 +37,7 @@
         let isArrowFlying = false;
         let trajectoryPoints = [];
         let arrowPosition = null;
+        let cameraX = 0; // To control camera position
 
         function calculateArrowTrajectory(angle, power, totalTime = 5) {
             const g = 9.8; // Acceleration due to gravity (m/s^2)
@@ -51,11 +52,7 @@
                 const x = initialVelocityX * t;
                 const y = initialVelocityY * t - 0.5 * g * t * t;
 
-                // Allow the arrow to hit the ground by not breaking when y becomes negative
                 points.push({ x, y });
-
-                // Stop the loop if the arrow goes out of canvas bounds
-                if (launchPoint.x + x * (currentPlayer === 1 ? 1 : -1) < 0 || launchPoint.x + x * (currentPlayer === 1 ? 1 : -1) > canvas.width) break;
             }
 
             return points;
@@ -64,17 +61,17 @@
         function drawTrajectory() {
             ctx.fillStyle = 'black';
             ctx.beginPath();
-            ctx.arc(launchPoint.x, launchPoint.y, 5, 0, Math.PI * 2);
+            ctx.arc(launchPoint.x - cameraX, launchPoint.y, 5, 0, Math.PI * 2);
             ctx.fill();
 
             if (!isArrowFlying) {
                 const trajectory = calculateArrowTrajectory(angle, power);
                 const scale = 5;
 
-                const direction = currentPlayer === 1 ? 1 : -1; // Ensure correct direction
+                const direction = currentPlayer === 1 ? -1 : 1; // Direction for Player 1 is negative, for Player 2 it's positive
                 trajectory.forEach((point) => {
-                    const canvasX = launchPoint.x + point.x * scale * direction;
-                    const canvasY = launchPoint.y - point.y * scale;
+                    const canvasX = launchPoint.x + point.x * scale * direction - cameraX;
+                    const canvasY = launchPoint.y - point.y * scale; // Negative y for both players as they aim upwards
 
                     // Check if the point is within the canvas
                     if (canvasY >= 0 && canvasY <= canvas.height) {
@@ -91,7 +88,7 @@
             if (isArrowFlying && arrowPosition) {
                 ctx.fillStyle = 'blue';
                 ctx.beginPath();
-                ctx.arc(arrowPosition.x, arrowPosition.y, 5, 0, Math.PI * 2);
+                ctx.arc(arrowPosition.x - cameraX, arrowPosition.y, 5, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
@@ -109,29 +106,29 @@
 
                     // Head
                     ctx.beginPath();
-                    ctx.arc(centerX, baseY - player.height + 15, 10, 0, 2 * Math.PI);
+                    ctx.arc(centerX - cameraX, baseY - player.height + 15, 10, 0, 2 * Math.PI);
                     ctx.stroke();
 
                     // Body
                     ctx.beginPath();
-                    ctx.moveTo(centerX, baseY - player.height + 25);
-                    ctx.lineTo(centerX, baseY - 20);
+                    ctx.moveTo(centerX - cameraX, baseY - player.height + 25);
+                    ctx.lineTo(centerX - cameraX, baseY - 20);
                     ctx.stroke();
 
                     // Arms
                     ctx.beginPath();
-                    ctx.moveTo(centerX, baseY - player.height + 50);
-                    ctx.lineTo(centerX - 20, baseY - player.height + 30);
-                    ctx.moveTo(centerX, baseY - player.height + 50);
-                    ctx.lineTo(centerX + 20, baseY - player.height + 30);
+                    ctx.moveTo(centerX - cameraX, baseY - player.height + 50);
+                    ctx.lineTo(centerX - cameraX - 20, baseY - player.height + 30);
+                    ctx.moveTo(centerX - cameraX, baseY - player.height + 50);
+                    ctx.lineTo(centerX - cameraX + 20, baseY - player.height + 30);
                     ctx.stroke();
 
                     // Legs
                     ctx.beginPath();
-                    ctx.moveTo(centerX, baseY - 20);
-                    ctx.lineTo(centerX - 15, baseY);
-                    ctx.moveTo(centerX, baseY - 20);
-                    ctx.lineTo(centerX + 15, baseY);
+                    ctx.moveTo(centerX - cameraX, baseY - 20);
+                    ctx.lineTo(centerX - cameraX - 15, baseY);
+                    ctx.moveTo(centerX - cameraX, baseY - 20);
+                    ctx.lineTo(centerX - cameraX + 15, baseY);
                     ctx.stroke();
 
                     ctx.restore();
@@ -144,14 +141,17 @@
             let dy = mouseY - launchPoint.y;
 
             // Adjust angle based on which player is shooting
-            if (currentPlayer === 2) {
-                dx = -dx; // Reverse direction for player 2
+            if (currentPlayer === 1) {
+                // Player 1 aims from left to right but with a reversed x calculation
+                angle = Math.atan2(-dy, -dx) * (180 / Math.PI); // Negative dx for Player 1 to aim right
+            } else {
+                // Player 2 aims from right to left
+                angle = Math.atan2(-dy, dx) * (180 / Math.PI); // Positive dx for Player 2 to aim left
             }
 
-            angle = Math.atan2(-dy, Math.abs(dx)) * (180 / Math.PI); // Negative dy for intuitive pulling, use abs(dx) for consistent angle calculation
             if (angle < 0) angle += 360; // Ensure angle is positive
 
-            // Power is now just based on the distance from the launch point to the mouse
+            // Power based on the distance from the launch point to the mouse
             power = Math.min(Math.sqrt(dx * dx + dy * dy) / 2, 100); // Scale power
         }
 
@@ -168,9 +168,9 @@
             if (trajectoryPoints.length > 0) {
                 const scale = 5;
                 const nextPoint = trajectoryPoints.shift();
-                const direction = currentPlayer === 1 ? 1 : -1; // Correct direction for each player
+                const direction = currentPlayer === 1 ? -1 : 1; // Direction for trajectory animation
                 arrowPosition.x = launchPoint.x + nextPoint.x * scale * direction;
-                arrowPosition.y = launchPoint.y - nextPoint.y * scale;
+                arrowPosition.y = launchPoint.y - nextPoint.y * scale; // Negative y for both players
 
                 // Check for collision with the ground or players
                 if (arrowPosition.y >= canvas.height || arrowPosition.x < 0 || arrowPosition.x > canvas.width) {
@@ -196,6 +196,9 @@
                         return; // End the game
                     }
                 }
+
+                // Move camera to follow the arrow
+                cameraX = arrowPosition.x - canvas.width / 2;
 
                 drawScene();
                 if (isArrowFlying) {
