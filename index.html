@@ -17,7 +17,7 @@
 </head>
 <body>
     <h1>Arrow Trajectory Game</h1>
-    <canvas id="trajectoryCanvas" width="800" height="400"></canvas>
+    <canvas id="trajectoryCanvas" width="1200" height="600"></canvas>
 
     <script>
         const canvas = document.getElementById('trajectoryCanvas');
@@ -26,7 +26,10 @@
         let angle = 45;
         let power = 50;
         let isDragging = false;
-        let launchPoint = { x: 100, y: canvas.height - 50 }; // Fixed launch point
+        let launchPoint = { x: 150, y: canvas.height - 150 }; // Fixed launch point
+        let isArrowFlying = false;
+        let trajectoryPoints = [];
+        let arrowPosition = null;
 
         function calculateArrowTrajectory(angle, power, totalTime = 5) {
             const g = 9.8; // Acceleration due to gravity (m/s^2)
@@ -56,26 +59,67 @@
             ctx.arc(launchPoint.x, launchPoint.y, 5, 0, Math.PI * 2);
             ctx.fill();
 
-            const trajectory = calculateArrowTrajectory(angle, power);
-            const scale = 5;
+            if (!isArrowFlying) {
+                const trajectory = calculateArrowTrajectory(angle, power);
+                const scale = 5;
 
-            trajectory.forEach((point) => {
-                const canvasX = launchPoint.x + point.x * scale;
-                const canvasY = launchPoint.y - point.y * scale;
+                trajectory.forEach((point) => {
+                    const canvasX = launchPoint.x + point.x * scale;
+                    const canvasY = launchPoint.y - point.y * scale;
 
+                    ctx.beginPath();
+                    ctx.arc(canvasX, canvasY, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = 'red';
+                    ctx.fill();
+                });
+            }
+        }
+
+        function drawArrow() {
+            if (isArrowFlying && arrowPosition) {
+                ctx.fillStyle = 'blue';
                 ctx.beginPath();
-                ctx.arc(canvasX, canvasY, 2, 0, Math.PI * 2);
-                ctx.fillStyle = 'red';
+                ctx.arc(arrowPosition.x, arrowPosition.y, 5, 0, Math.PI * 2);
                 ctx.fill();
-            });
+            }
         }
 
         function updateAngleAndPower(mouseX, mouseY) {
-            const dx = mouseX - launchPoint.x;
-            const dy = launchPoint.y - mouseY;
+            const dx = launchPoint.x - mouseX; // Reverse the x direction
+            const dy = mouseY - launchPoint.y; // Reverse the y direction
 
             angle = Math.atan2(dy, dx) * (180 / Math.PI); // Convert radians to degrees
             power = Math.min(Math.sqrt(dx * dx + dy * dy) / 2, 100); // Scale power
+        }
+
+        function startArrowFlight() {
+            trajectoryPoints = calculateArrowTrajectory(angle, power);
+            if (trajectoryPoints.length > 0) {
+                isArrowFlying = true;
+                arrowPosition = { x: launchPoint.x, y: launchPoint.y };
+                animateArrow();
+            }
+        }
+
+        function animateArrow() {
+            if (trajectoryPoints.length > 0) {
+                const scale = 5;
+                const nextPoint = trajectoryPoints.shift();
+                arrowPosition.x = launchPoint.x + nextPoint.x * scale;
+                arrowPosition.y = launchPoint.y - nextPoint.y * scale;
+                drawScene();
+                requestAnimationFrame(animateArrow);
+            } else {
+                isArrowFlying = false;
+                arrowPosition = null;
+                drawScene();
+            }
+        }
+
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTrajectory();
+            drawArrow();
         }
 
         canvas.addEventListener('mousedown', (event) => {
@@ -89,15 +133,18 @@
                 const mouseY = event.clientY - rect.top;
 
                 updateAngleAndPower(mouseX, mouseY);
-                drawTrajectory();
+                drawScene();
             }
         });
 
         canvas.addEventListener('mouseup', () => {
             isDragging = false;
+            if (!isArrowFlying) {
+                startArrowFlight();
+            }
         });
 
-        drawTrajectory();
+        drawScene();
     </script>
 </body>
 </html>
